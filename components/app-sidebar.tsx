@@ -45,16 +45,6 @@ const navMain = [
 
 const navSecondary = [
   {
-    title: "Email Settings",
-    url: "/settings/email",
-    icon: Envelope,
-  },
-  {
-    title: "Templates",
-    url: "/settings/templates",
-    icon: FileText,
-  },
-  {
     title: "Settings",
     url: "/settings",
     icon: GearSix,

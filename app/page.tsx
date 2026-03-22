@@ -147,8 +147,12 @@ export default function DashboardPage() {
                 <Badge variant="secondary" className="font-mono text-[10px]">POST</Badge>
                 <span className="text-foreground">/api/v1/generate/manual</span>
               </div>
+              <div className="flex items-center gap-2 font-mono text-xs bg-muted/40 rounded-md px-3 py-2">
+                <Badge variant="secondary" className="font-mono text-[10px]">POST</Badge>
+                <span className="text-foreground">/api/v1/generate/custom</span>
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Both endpoints require a valid JWT admin token in the{" "}
+                All endpoints require a valid JWT admin token in the{" "}
                 <code className="font-mono bg-muted/50 px-1 rounded">Authorization: Bearer</code>{" "}
                 header.
               </p>

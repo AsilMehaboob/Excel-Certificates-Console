@@ -184,7 +184,6 @@ export default function ManualPage() {
 
   async function handleSubmit() {
     setPreviewOpen(false)
-
     if (!token) {
       setError('No JWT token set. Click "Set JWT token" in the top-right corner.')
       setLoading(false)
@@ -415,7 +414,14 @@ export default function ManualPage() {
             </div>
           </form>
 
-          {result && (
+          {loading && (
+            <div className="flex flex-col items-center justify-center p-12 text-muted-foreground gap-3 border rounded-xl border-dashed bg-muted/10 mt-2">
+              <SpinnerGap className="animate-spin size-8" />
+              <p className="text-sm font-medium">Processing & Sending Certificates...</p>
+            </div>
+          )}
+
+          {result && !loading && (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-semibold">{result.eventName}</h2>
