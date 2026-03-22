@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
   Sidebar,
@@ -64,13 +65,19 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <FileText weight="fill" className="size-4" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+                <Image
+                  src="/excel-logo.png"
+                  alt="Excel MEC"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
                 <span className="font-semibold text-sm">Excel MEC</span>
