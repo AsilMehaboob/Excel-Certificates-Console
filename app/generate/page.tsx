@@ -4,6 +4,7 @@ import { useState } from "react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
+import { TokenSlot } from "@/components/global-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +20,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  ArrowRight,
   Export,
   CheckCircle,
   XCircle,
@@ -31,6 +31,7 @@ import {
   Plus,
   Minus,
 } from "@phosphor-icons/react"
+import { useToken } from "@/lib/token-context"
 
 type ParticipantResult = {
   id?: string | number
@@ -54,7 +55,7 @@ type GenerateResult = {
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1"
 
 export default function GeneratePage() {
-  const [token, setToken] = useState("")
+  const { token } = useToken()
   const [eventId, setEventId] = useState("")
   const [cName, setCName] = useState("")
   const [loading, setLoading] = useState(false)
@@ -63,6 +64,10 @@ export default function GeneratePage() {
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
+    if (!token) {
+      setError('No JWT token set. Click "Set JWT token" in the top-right corner.')
+      return
+    }
     setLoading(true)
     setResult(null)
     setError(null)
@@ -81,11 +86,7 @@ export default function GeneratePage() {
       })
 
       const data = await res.json()
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Certificate generation failed")
-      }
-
+      if (!res.ok || !data.success) throw new Error(data.error || "Certificate generation failed")
       setResult(data.data as GenerateResult)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unknown error occurred")
@@ -94,13 +95,8 @@ export default function GeneratePage() {
     }
   }
 
-  function increment() {
-    setEventId(String(Number(eventId || 0) + 1))
-  }
-
-  function decrement() {
-    setEventId(String(Math.max(1, Number(eventId || 0) - 1)))
-  }
+  function increment() { setEventId(String(Number(eventId || 0) + 1)) }
+  function decrement() { setEventId(String(Math.max(1, Number(eventId || 0) - 1))) }
 
   const allResults = result ? [...result.emailsSent, ...result.failedEmails] : []
 
@@ -112,6 +108,7 @@ export default function GeneratePage() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-4" />
           <span className="text-sm font-medium text-muted-foreground">Generate Certificates</span>
+          <TokenSlot />
         </header>
 
         <div className="flex flex-col gap-6 p-6 max-w-3xl">
@@ -127,31 +124,11 @@ export default function GeneratePage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">Request Parameters</CardTitle>
               <CardDescription className="text-sm">
-                Provide your admin JWT token and the target event ID.
+                Provide the target event ID. JWT token is set globally in the header.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleGenerate} className="flex flex-col gap-5">
-                {/* JWT Token */}
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="token" className="text-sm font-medium">
-                    JWT Token <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="token"
-                    type="password"
-                    placeholder="eyJhbGci..."
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    required
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Admin JWT. Generate with <code className="font-mono">node token.js</code> in the
-                    service repo.
-                  </p>
-                </div>
-
                 {/* Event ID */}
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="eventId" className="text-sm font-medium">
@@ -196,7 +173,7 @@ export default function GeneratePage() {
                 </div>
 
                 <div className="flex items-center gap-3 pt-1">
-                  <Button type="submit" disabled={loading || !token || !eventId}>
+                  <Button type="submit" disabled={loading || !eventId}>
                     {loading ? (
                       <>
                         <SpinnerGap className="animate-spin" />
@@ -255,14 +232,10 @@ export default function GeneratePage() {
                       <TableRow>
                         <TableHead className="w-8">#</TableHead>
                         <TableHead>
-                          <span className="flex items-center gap-1">
-                            <User className="size-3" /> Name
-                          </span>
+                          <span className="flex items-center gap-1"><User className="size-3" /> Name</span>
                         </TableHead>
                         <TableHead>
-                          <span className="flex items-center gap-1">
-                            <Envelope className="size-3" /> Email
-                          </span>
+                          <span className="flex items-center gap-1"><Envelope className="size-3" /> Email</span>
                         </TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Status</TableHead>
@@ -274,14 +247,10 @@ export default function GeneratePage() {
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                           <TableCell className="font-medium">
                             <span className="flex items-center gap-1.5">
-                              {p.isWinner && (
-                                <Trophy weight="fill" className="size-3 text-chart-1" />
-                              )}
+                              {p.isWinner && <Trophy weight="fill" className="size-3 text-chart-1" />}
                               {p.name}
                               {p.isWinner && p.team?.name && (
-                                <span className="text-muted-foreground font-normal">
-                                  ({p.team.name})
-                                </span>
+                                <span className="text-muted-foreground font-normal">({p.team.name})</span>
                               )}
                             </span>
                           </TableCell>
@@ -295,25 +264,19 @@ export default function GeneratePage() {
                                 {p.position === 1 ? "1st" : p.position === 2 ? "2nd" : "3rd"} Prize
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-xs">
-                                Participation
-                              </Badge>
+                              <Badge variant="outline" className="text-xs">Participation</Badge>
                             )}
                           </TableCell>
                           <TableCell>
                             {p.status === "sent" ? (
                               <Badge variant="default" className="gap-1 text-xs">
-                                <CheckCircle weight="fill" />
-                                Sent
+                                <CheckCircle weight="fill" /> Sent
                               </Badge>
                             ) : p.status === "skipped" ? (
-                              <Badge variant="secondary" className="text-xs">
-                                Skipped
-                              </Badge>
+                              <Badge variant="secondary" className="text-xs">Skipped</Badge>
                             ) : (
                               <Badge variant="destructive" className="gap-1 text-xs">
-                                <XCircle weight="fill" />
-                                Failed
+                                <XCircle weight="fill" /> Failed
                               </Badge>
                             )}
                           </TableCell>

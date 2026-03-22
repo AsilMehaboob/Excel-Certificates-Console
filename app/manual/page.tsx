@@ -4,6 +4,7 @@ import { useState } from "react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
+import { TokenSlot } from "@/components/global-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +20,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  PencilSimple,
   Plus,
   Minus,
   Trash,
@@ -30,6 +30,7 @@ import {
   User,
   Envelope,
 } from "@phosphor-icons/react"
+import { useToken } from "@/lib/token-context"
 
 type Participant = {
   name: string
@@ -57,7 +58,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/
 const emptyParticipant = (): Participant => ({ name: "", email: "" })
 
 export default function ManualPage() {
-  const [token, setToken] = useState("")
+  const { token } = useToken()
   const [eventId, setEventId] = useState("")
   const [cName, setCName] = useState("")
   const [participants, setParticipants] = useState<Participant[]>([emptyParticipant()])
@@ -79,8 +80,6 @@ export default function ManualPage() {
     )
   }
 
-  // Called when user pastes into any table input cell.
-  // If the clipboard contains multiple rows (tab/comma separated), expand the table.
   function handleCellPaste(
     e: React.ClipboardEvent<HTMLInputElement>,
     rowIndex: number,
@@ -89,7 +88,6 @@ export default function ManualPage() {
     const text = e.clipboardData.getData("text")
     const lines = text.trim().split("\n").filter(Boolean)
 
-    // Single cell paste — let browser handle it normally
     if (lines.length <= 1 && !text.includes("\t")) return
 
     e.preventDefault()
@@ -97,10 +95,8 @@ export default function ManualPage() {
     const parsed: Participant[] = lines.map((line) => {
       const parts = line.split(/[\t,]/).map((p) => p.trim())
       if (field === "email") {
-        // pasting starting from the email column: fill email from col 0, name stays
         return { name: "", email: parts[0] || "" }
       }
-      // default: col 0 = name, col 1 = email
       return { name: parts[0] || "", email: parts[1] || "" }
     })
 
@@ -121,16 +117,18 @@ export default function ManualPage() {
     })
   }
 
-  function increment() {
-    setEventId(String(Number(eventId || 0) + 1))
-  }
-
-  function decrement() {
-    setEventId(String(Math.max(1, Number(eventId || 0) - 1)))
-  }
+  function increment() { setEventId(String(Number(eventId || 0) + 1)) }
+  function decrement() { setEventId(String(Math.max(1, Number(eventId || 0) - 1))) }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!token) {
+      setError('No JWT token set. Click "Set JWT token" in the top-right corner.')
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setResult(null)
     setError(null)
@@ -159,11 +157,7 @@ export default function ManualPage() {
       })
 
       const data = await res.json()
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Manual generation failed")
-      }
-
+      if (!res.ok || !data.success) throw new Error(data.error || "Manual generation failed")
       setResult(data.data as GenerateResult)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unknown error occurred")
@@ -182,6 +176,7 @@ export default function ManualPage() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-4" />
           <span className="text-sm font-medium text-muted-foreground">Manual Entry</span>
+          <TokenSlot />
         </header>
 
         <div className="flex flex-col gap-6 p-6 max-w-4xl">
@@ -189,36 +184,20 @@ export default function ManualPage() {
             <h1 className="text-3xl font-semibold tracking-tight">Manual Entry</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Manually specify participant names and emails. All participants receive Participation
-              certificates. Paste CSV/tab-separated data to bulk-import.
+              certificates. Paste CSV/tab-separated data directly into any Name or Email cell.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            {/* Auth + Event config */}
+            {/* Event config */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-medium">Request Configuration</CardTitle>
                 <CardDescription className="text-sm">
-                  Admin JWT token, event details, and optional template override.
+                  Event details and optional template override. JWT token is set globally in the header.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                {/* Token */}
-                <div className="flex flex-col gap-2 sm:col-span-2">
-                  <Label htmlFor="token" className="text-sm font-medium">
-                    JWT Token <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="token"
-                    type="password"
-                    placeholder="eyJhbGci..."
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    required
-                    className="font-mono text-sm"
-                  />
-                </div>
-
                 {/* Event ID */}
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="eventId" className="text-sm font-medium">
@@ -267,10 +246,7 @@ export default function ManualPage() {
                   <div>
                     <CardTitle className="text-base font-medium">Participants</CardTitle>
                     <CardDescription className="text-sm mt-0.5">
-                      Each participant receives a Participation certificate.{" "}
-                      <span className="text-primary">
-                        Paste CSV (Name, Email) to auto-fill rows.
-                      </span>
+                      Each participant receives a Participation certificate. Paste from Excel directly into any cell.
                     </CardDescription>
                   </div>
                   <Badge variant="secondary" className="font-mono tabular-nums">
@@ -279,22 +255,16 @@ export default function ManualPage() {
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
-
-                {/* Participants table */}
                 <div className="rounded-md border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-8">#</TableHead>
                         <TableHead>
-                          <span className="flex items-center gap-1">
-                            <User className="size-3" /> Name
-                          </span>
+                          <span className="flex items-center gap-1"><User className="size-3" /> Name</span>
                         </TableHead>
                         <TableHead>
-                          <span className="flex items-center gap-1">
-                            <Envelope className="size-3" /> Email
-                          </span>
+                          <span className="flex items-center gap-1"><Envelope className="size-3" /> Email</span>
                         </TableHead>
                         <TableHead className="w-10" />
                       </TableRow>
@@ -360,16 +330,14 @@ export default function ManualPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <Button type="submit" disabled={loading || !token || !eventId}>
+              <Button type="submit" disabled={loading || !eventId}>
                 {loading ? (
                   <>
                     <SpinnerGap className="animate-spin" />
                     Processing…
                   </>
                 ) : (
-                  <>
-                    Send Certificates
-                  </>
+                  "Send Certificates"
                 )}
               </Button>
               {result && (
@@ -424,15 +392,13 @@ export default function ManualPage() {
                           <TableCell>
                             {p.status === "sent" ? (
                               <Badge variant="default" className="gap-1 text-xs">
-                                <CheckCircle weight="fill" />
-                                Sent
+                                <CheckCircle weight="fill" /> Sent
                               </Badge>
                             ) : p.status === "skipped" ? (
                               <Badge variant="secondary" className="text-xs">Skipped</Badge>
                             ) : (
                               <Badge variant="destructive" className="gap-1 text-xs">
-                                <XCircle weight="fill" />
-                                Failed
+                                <XCircle weight="fill" /> Failed
                               </Badge>
                             )}
                           </TableCell>

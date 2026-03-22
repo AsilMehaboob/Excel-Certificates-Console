@@ -14,6 +14,7 @@ import {
 } from "@phosphor-icons/react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { TokenSlot } from "@/components/global-header"
 
 const stats = [
   {
@@ -73,6 +74,7 @@ export default function DashboardPage() {
           <span className="text-sm font-medium text-muted-foreground">
             Dashboard
           </span>
+          <TokenSlot />
         </header>
 
         {/* Content */}
