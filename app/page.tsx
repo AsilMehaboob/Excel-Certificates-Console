@@ -149,7 +149,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 font-mono text-xs bg-muted/40 rounded-md px-3 py-2">
                 <Badge variant="secondary" className="font-mono text-[10px]">POST</Badge>
-                <span className="text-foreground">/api/v1/generate/custom</span>
+                <span className="text-foreground">/api/v1/generate/preview</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 All endpoints require a valid JWT admin token in the{" "}

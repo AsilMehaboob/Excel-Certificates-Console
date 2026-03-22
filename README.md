@@ -30,7 +30,7 @@ Ensure you have Node.js and npm (or yarn/pnpm) installed on your system.
 1. Clone the repository to your local machine.
 2. Navigate to the project directory:
    ```bash
-   cd excel-certificates-console
+   cd Excel-Certificates-Console
    ```
 3. Install the required dependencies:
    ```bash
