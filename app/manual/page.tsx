@@ -1,0 +1,454 @@
+"use client"
+
+import { useState } from "react"
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import { Separator } from "@/components/ui/separator"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Alert } from "@/components/ui/alert"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  PencilSimple,
+  Plus,
+  Minus,
+  Trash,
+  CheckCircle,
+  XCircle,
+  SpinnerGap,
+  Warning,
+  User,
+  Envelope,
+} from "@phosphor-icons/react"
+
+type Participant = {
+  name: string
+  email: string
+}
+
+type ParticipantResult = {
+  id?: string | number
+  name: string
+  email: string
+  status: "sent" | "failed" | "skipped"
+  error?: string
+}
+
+type GenerateResult = {
+  eventName: string
+  sentCount: number
+  failedCount: number
+  emailsSent: ParticipantResult[]
+  failedEmails: ParticipantResult[]
+}
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1"
+
+const emptyParticipant = (): Participant => ({ name: "", email: "" })
+
+export default function ManualPage() {
+  const [token, setToken] = useState("")
+  const [eventId, setEventId] = useState("")
+  const [cName, setCName] = useState("")
+  const [participants, setParticipants] = useState<Participant[]>([emptyParticipant()])
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<GenerateResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  function addRow() {
+    setParticipants((prev) => [...prev, emptyParticipant()])
+  }
+
+  function removeRow(index: number) {
+    setParticipants((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function updateRow(index: number, field: keyof Participant, value: string) {
+    setParticipants((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, [field]: value } : p))
+    )
+  }
+
+  // Called when user pastes into any table input cell.
+  // If the clipboard contains multiple rows (tab/comma separated), expand the table.
+  function handleCellPaste(
+    e: React.ClipboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    field: keyof Participant
+  ) {
+    const text = e.clipboardData.getData("text")
+    const lines = text.trim().split("\n").filter(Boolean)
+
+    // Single cell paste — let browser handle it normally
+    if (lines.length <= 1 && !text.includes("\t")) return
+
+    e.preventDefault()
+
+    const parsed: Participant[] = lines.map((line) => {
+      const parts = line.split(/[\t,]/).map((p) => p.trim())
+      if (field === "email") {
+        // pasting starting from the email column: fill email from col 0, name stays
+        return { name: "", email: parts[0] || "" }
+      }
+      // default: col 0 = name, col 1 = email
+      return { name: parts[0] || "", email: parts[1] || "" }
+    })
+
+    if (parsed.length === 0) return
+
+    setParticipants((prev) => {
+      const before = prev.slice(0, rowIndex).filter((p) => p.name || p.email)
+      const after = prev.slice(rowIndex + parsed.length)
+      const merged = parsed.map((newRow, idx) => {
+        const existing = prev[rowIndex + idx]
+        if (field === "email" && existing) {
+          return { name: existing.name, email: newRow.email }
+        }
+        return newRow
+      })
+      const result = [...before, ...merged, ...after].filter((p) => p.name || p.email)
+      return result.length > 0 ? result : [emptyParticipant()]
+    })
+  }
+
+  function increment() {
+    setEventId(String(Number(eventId || 0) + 1))
+  }
+
+  function decrement() {
+    setEventId(String(Math.max(1, Number(eventId || 0) - 1)))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setResult(null)
+    setError(null)
+
+    const validParticipants = participants.filter((p) => p.name.trim() && p.email.trim())
+    if (validParticipants.length === 0) {
+      setError("Please add at least one participant with a name and email.")
+      setLoading(false)
+      return
+    }
+
+    try {
+      const body: Record<string, unknown> = {
+        eventId: Number(eventId),
+        participants: validParticipants,
+      }
+      if (cName.trim()) body.cName = cName.trim()
+
+      const res = await fetch(`${BASE_URL}/generate/manual`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Manual generation failed")
+      }
+
+      setResult(data.data as GenerateResult)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An unknown error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const allResults = result ? [...result.emailsSent, ...result.failedEmails] : []
+
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="h-4" />
+          <span className="text-sm font-medium text-muted-foreground">Manual Entry</span>
+        </header>
+
+        <div className="flex flex-col gap-6 p-6 max-w-4xl">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">Manual Entry</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manually specify participant names and emails. All participants receive Participation
+              certificates. Paste CSV/tab-separated data to bulk-import.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            {/* Auth + Event config */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-medium">Request Configuration</CardTitle>
+                <CardDescription className="text-sm">
+                  Admin JWT token, event details, and optional template override.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                {/* Token */}
+                <div className="flex flex-col gap-2 sm:col-span-2">
+                  <Label htmlFor="token" className="text-sm font-medium">
+                    JWT Token <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="token"
+                    type="password"
+                    placeholder="eyJhbGci..."
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    required
+                    className="font-mono text-sm"
+                  />
+                </div>
+
+                {/* Event ID */}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="eventId" className="text-sm font-medium">
+                    Event ID <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="flex items-center gap-2 w-44">
+                    <Button type="button" variant="outline" size="icon" onClick={decrement}>
+                      <Minus className="size-4" />
+                    </Button>
+                    <Input
+                      id="eventId"
+                      type="number"
+                      placeholder="42"
+                      value={eventId}
+                      onChange={(e) => setEventId(e.target.value)}
+                      required
+                      className="text-sm text-center"
+                    />
+                    <Button type="button" variant="outline" size="icon" onClick={increment}>
+                      <Plus className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Certificate Name */}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="cName" className="text-sm font-medium">
+                    Certificate Name{" "}
+                    <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    id="cName"
+                    placeholder="e.g. EXCEL MAIN DAYS"
+                    value={cName}
+                    onChange={(e) => setCName(e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Participants */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-medium">Participants</CardTitle>
+                    <CardDescription className="text-sm mt-0.5">
+                      Each participant receives a Participation certificate.{" "}
+                      <span className="text-primary">
+                        Paste CSV (Name, Email) to auto-fill rows.
+                      </span>
+                    </CardDescription>
+                  </div>
+                  <Badge variant="secondary" className="font-mono tabular-nums">
+                    {participants.filter((p) => p.name || p.email).length} entries
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+
+                {/* Participants table */}
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8">#</TableHead>
+                        <TableHead>
+                          <span className="flex items-center gap-1">
+                            <User className="size-3" /> Name
+                          </span>
+                        </TableHead>
+                        <TableHead>
+                          <span className="flex items-center gap-1">
+                            <Envelope className="size-3" /> Email
+                          </span>
+                        </TableHead>
+                        <TableHead className="w-10" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {participants.map((p, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-muted-foreground text-sm">{i + 1}</TableCell>
+                          <TableCell className="py-1.5">
+                            <Input
+                              value={p.name}
+                              onChange={(e) => updateRow(i, "name", e.target.value)}
+                              onPaste={(e) => handleCellPaste(e, i, "name")}
+                              placeholder="Participant name"
+                              className="h-9 text-sm border-0 bg-transparent px-2 focus-visible:ring-0 shadow-none"
+                            />
+                          </TableCell>
+                          <TableCell className="py-1.5">
+                            <Input
+                              type="email"
+                              value={p.email}
+                              onChange={(e) => updateRow(i, "email", e.target.value)}
+                              onPaste={(e) => handleCellPaste(e, i, "email")}
+                              placeholder="email@example.com"
+                              className="h-9 text-sm border-0 bg-transparent px-2 focus-visible:ring-0 shadow-none"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeRow(i)}
+                              disabled={participants.length === 1}
+                            >
+                              <Trash className="size-3.5 text-muted-foreground" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addRow}
+                  className="self-start"
+                >
+                  <Plus />
+                  Add Row
+                </Button>
+              </CardContent>
+            </Card>
+
+            {error && (
+              <Alert className="border-destructive/40 bg-destructive/10 text-destructive text-sm flex items-start gap-2">
+                <Warning weight="fill" className="size-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </Alert>
+            )}
+
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={loading || !token || !eventId}>
+                {loading ? (
+                  <>
+                    <SpinnerGap className="animate-spin" />
+                    Processing…
+                  </>
+                ) : (
+                  <>
+                    Send Certificates
+                  </>
+                )}
+              </Button>
+              {result && (
+                <span className="text-sm text-muted-foreground">
+                  <span className="text-primary font-medium">{result.sentCount} sent</span>
+                  {result.failedCount > 0 && (
+                    <span className="text-destructive font-medium ml-1">
+                      · {result.failedCount} failed
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+          </form>
+
+          {result && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold">{result.eventName}</h2>
+                <Badge variant="default" className="gap-1">
+                  <CheckCircle weight="fill" />
+                  {result.sentCount} sent
+                </Badge>
+                {result.failedCount > 0 && (
+                  <Badge variant="destructive" className="gap-1">
+                    <XCircle weight="fill" />
+                    {result.failedCount} failed
+                  </Badge>
+                )}
+              </div>
+
+              <Card>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8">#</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Note</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allResults.map((p, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="font-medium">{p.name}</TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {p.email || "—"}
+                          </TableCell>
+                          <TableCell>
+                            {p.status === "sent" ? (
+                              <Badge variant="default" className="gap-1 text-xs">
+                                <CheckCircle weight="fill" />
+                                Sent
+                              </Badge>
+                            ) : p.status === "skipped" ? (
+                              <Badge variant="secondary" className="text-xs">Skipped</Badge>
+                            ) : (
+                              <Badge variant="destructive" className="gap-1 text-xs">
+                                <XCircle weight="fill" />
+                                Failed
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {p.error || "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}

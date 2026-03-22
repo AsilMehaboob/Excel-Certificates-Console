@@ -1,65 +1,159 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import { Separator } from "@/components/ui/separator"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import {
+  ArrowRight,
+  Envelope,
+  CheckCircle,
+  XCircle,
+  Clock,
+} from "@phosphor-icons/react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+
+const stats = [
+  {
+    label: "Generate (Auto)",
+    description: "Fetch participants from Events API and dispatch certificates",
+    icon: ArrowRight,
+    href: "/generate",
+    badge: "API",
+    badgeVariant: "default" as const,
+  },
+  {
+    label: "Manual Entry",
+    description: "Manually specify participants by name and email for an event",
+    icon: Envelope,
+    href: "/manual",
+    badge: "Manual",
+    badgeVariant: "secondary" as const,
+  },
+]
+
+const features = [
+  {
+    icon: CheckCircle,
+    title: "SVG → PDF",
+    desc: "Converts Supabase-stored SVG templates into personalized PDFs.",
+    color: "text-primary",
+  },
+  {
+    icon: Envelope,
+    title: "Email Dispatch",
+    desc: "Sends certificates via SMTP with professional formatting.",
+    color: "text-primary",
+  },
+  {
+    icon: XCircle,
+    title: "Error Handling",
+    desc: "Tracks failed deliveries with per-participant status reporting.",
+    color: "text-destructive",
+  },
+  {
+    icon: Clock,
+    title: "Batch Processing",
+    desc: "Processes participants in configurable batches with rate limiting.",
+    color: "text-primary",
+  },
+]
+
+export default function DashboardPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        {/* Header */}
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="h-4" />
+          <span className="text-sm font-medium text-muted-foreground">
+            Dashboard
+          </span>
+        </header>
+
+        {/* Content */}
+        <div className="flex flex-col gap-6 p-6">
+          {/* Hero */}
+          <div className="flex flex-col gap-1">
+            <h1 className="text-3xl font-semibold tracking-tight">Certificate Console</h1>
+            <p className="text-sm text-muted-foreground max-w-lg">
+              Generate and distribute personalized certificates for Excel MEC events. Supports both
+              participation and appreciation (winner) certificates.
+            </p>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {stats.map((item) => (
+              <Card
+                key={item.label}
+                className="group cursor-pointer transition-all hover:ring-1 hover:ring-primary/40"
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold">{item.label}</CardTitle>
+                    <Badge variant={item.badgeVariant}>{item.badge}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pb-4">
+                  <CardDescription className="text-sm leading-relaxed mb-4">
+                    {item.description}
+                  </CardDescription>
+                  <Button size="sm" variant="outline" render={<Link href={item.href} />}>
+                    Open
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* How It Works */}
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+              How It Works
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {features.map((f) => (
+                <Card key={f.title} className="py-4">
+                  <CardContent className="flex flex-col gap-2 px-4">
+                    <f.icon weight="fill" className={`size-5 ${f.color}`} />
+                    <p className="text-sm font-semibold">{f.title}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* API Info */}
+          <Card className="border-dashed">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Backend Endpoint
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 font-mono text-xs bg-muted/40 rounded-md px-3 py-2">
+                <Badge variant="secondary" className="font-mono text-[10px]">POST</Badge>
+                <span className="text-foreground">/api/v1/generate</span>
+              </div>
+              <div className="flex items-center gap-2 font-mono text-xs bg-muted/40 rounded-md px-3 py-2">
+                <Badge variant="secondary" className="font-mono text-[10px]">POST</Badge>
+                <span className="text-foreground">/api/v1/generate/manual</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Both endpoints require a valid JWT admin token in the{" "}
+                <code className="font-mono bg-muted/50 px-1 rounded">Authorization: Bearer</code>{" "}
+                header.
+              </p>
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+      </SidebarInset>
+    </SidebarProvider>
+  )
 }
