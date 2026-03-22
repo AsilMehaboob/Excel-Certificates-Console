@@ -12,6 +12,14 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Alert } from "@/components/ui/alert"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Table,
   TableBody,
   TableCell,
@@ -65,6 +73,60 @@ export default function ManualPage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  async function handlePreview(e: React.FormEvent) {
+    e.preventDefault()
+
+    if (!token) {
+      setError('No JWT token set. Click "Set JWT token" in the top-right corner.')
+      return
+    }
+
+    const validParticipants = participants.filter((p) => p.name.trim() && p.email.trim())
+    if (validParticipants.length === 0) {
+      setError("Please add at least one participant with a name and email to preview.")
+      return
+    }
+
+    setPreviewLoading(true)
+    setError(null)
+
+    try {
+      const firstP = validParticipants[0]
+      const body = {
+        pName: firstP.name,
+        eName: cName || `Event ${eventId}`,
+        isWinner: false,
+        position: null,
+        cName: cName || null
+      }
+      const res = await fetch(`${BASE_URL}/generate/preview`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Preview failed")
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      setPreviewUrl(url)
+      setPreviewOpen(true)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An unknown error occurred")
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   function addRow() {
     setParticipants((prev) => [...prev, emptyParticipant()])
@@ -120,8 +182,8 @@ export default function ManualPage() {
   function increment() { setEventId(String(Number(eventId || 0) + 1)) }
   function decrement() { setEventId(String(Math.max(1, Number(eventId || 0) - 1))) }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit() {
+    setPreviewOpen(false)
 
     if (!token) {
       setError('No JWT token set. Click "Set JWT token" in the top-right corner.')
@@ -188,7 +250,7 @@ export default function ManualPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <form onSubmit={handlePreview} className="flex flex-col gap-5">
             {/* Event config */}
             <Card>
               <CardHeader className="pb-3">
@@ -330,14 +392,14 @@ export default function ManualPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <Button type="submit" disabled={loading || !eventId}>
-                {loading ? (
+              <Button type="submit" disabled={previewLoading || !eventId}>
+                {previewLoading ? (
                   <>
                     <SpinnerGap className="animate-spin" />
-                    Processing…
+                    Generating Preview…
                   </>
                 ) : (
-                  "Send Certificates"
+                  "Preview Certificate"
                 )}
               </Button>
               {result && (
@@ -414,6 +476,37 @@ export default function ManualPage() {
             </div>
           )}
         </div>
+
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Certificate Preview</DialogTitle>
+              <DialogDescription>
+                Preview uses the first participant's data. Review the layout before confirming.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex aspect-video w-full rounded-md border bg-muted/20 overflow-hidden items-center justify-center">
+              {previewUrl ? (
+                <iframe src={previewUrl} className="w-full h-full border-none" title="Certificate Preview" />
+              ) : (
+                <SpinnerGap className="animate-spin size-6 text-muted-foreground" />
+              )}
+            </div>
+            <DialogFooter className="sm:justify-between">
+              <Button variant="ghost" onClick={() => setPreviewOpen(false)}>Cancel</Button>
+              <Button onClick={handleSubmit} disabled={loading}>
+                {loading ? (
+                  <>
+                    <SpinnerGap className="animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Confirm & Send"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </SidebarInset>
     </SidebarProvider>
   )

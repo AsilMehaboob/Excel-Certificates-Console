@@ -72,7 +72,7 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" render={<Link href="/" />}>
               <div className="flex h-8 w-8 shrink-0 items-center justify-center">
                 <Image
-                  src="/excel-logo.png"
+                  src="/excel-logo.svg"
                   alt="Excel MEC"
                   width={32}
                   height={32}
